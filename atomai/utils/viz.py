@@ -24,14 +24,14 @@ def plot_losses(train_loss: Union[List[float], np.ndarray],
     Plots train and test losses
     """
     print('Plotting training history')
-    _, ax = plt.subplots(1, 1, figsize=(6, 6))
+    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
     ax.plot(train_loss, label='Train')
     ax.plot(test_loss, label='Test')
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
     ax.legend()
     plt.show()
-
+    return fig
 
 def plot_coord(img: np.ndarray,
                coord: np.ndarray,
