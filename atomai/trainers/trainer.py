@@ -585,7 +585,7 @@ class BaseTrainer:
             self.net.load_state_dict(average_weights(self.running_weights))
             self.eval_model()
         if self.plot_training_history:
-            plot_losses(self.filename + "_losscurve.tif.",
+            plot_losses(self.filename + "_losscurve",
                         self.loss_acc["train_loss"],
                         self.loss_acc["test_loss"])
         return self.net
