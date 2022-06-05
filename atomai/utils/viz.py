@@ -18,7 +18,7 @@ import matplotlib.patches as patches
 import numpy as np
 
 
-def plot_losses(train_loss: Union[List[float], np.ndarray],
+def plot_losses(path, train_loss: Union[List[float], np.ndarray],
                 test_loss: Union[List[float], np.ndarray]) -> None:
     """
     Plots train and test losses
@@ -31,7 +31,7 @@ def plot_losses(train_loss: Union[List[float], np.ndarray],
     ax.set_ylabel('Loss')
     ax.legend()
     plt.show()
-    return fig
+    fig.savefig(path)
 
 def plot_coord(img: np.ndarray,
                coord: np.ndarray,
