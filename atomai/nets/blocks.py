@@ -326,3 +326,42 @@ class DilatedBlock(nn.Module):
             x = conv_layer(x)
             atrous_layers.append(x.unsqueeze(-1))
         return torch.sum(torch.cat(atrous_layers, dim=-1), dim=-1)
+    
+    
+class upsample_block(nn.Module):
+    '''
+    Add the defined block in AIcrystallography repo. 
+    Defines upsampling block performed either with
+    bilinear interpolation followed by 1-by-1
+    convolution or with a transposed convolution
+    '''
+    def __init__(self, input_channels, output_channels,
+                 mode='interpolate', kernel_size=1,
+                 stride=1, padding=0):
+        '''
+        Args:
+            input_channels: number of channels in the previous/input layer
+            output_channels: number of the output channels for the present layer
+            mode: upsampling mode (default: 'interpolate')
+            kernel_size: size (in pixels) of convolutional filter
+            stride: value of convolutional filter stride
+            padding: value of padding at the edges
+            '''
+        super(upsample_block, self).__init__()
+        self.mode = mode
+        self.conv = nn.Conv2d(
+            input_channels, output_channels,
+            kernel_size = kernel_size,
+            stride = stride, padding = padding)
+        self.conv_t = nn.ConvTranspose2d(
+            input_channels, output_channels,
+            kernel_size=2, stride=2, padding = 0)
+
+    def forward(self, x):
+        '''Defines a forward path'''
+        if self.mode == 'interpolate':
+            x = F.interpolate(
+                x, scale_factor=2,
+                mode='bilinear', align_corners=False)
+            return self.conv(x)
+        return self.conv_t(x)
