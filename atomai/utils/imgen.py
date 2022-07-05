@@ -121,13 +121,14 @@ def create_lattice_mask(lattice: np.ndarray, xy_atoms: np.ndarray,
     lattice_mask = np.zeros_like(lattice)
     for xy in xy_atoms:
         x, y = xy
-        x = int(np.around(x))
-        y = int(np.around(y))
-        _, mask = create_mask_func(scale, rmask)
+        _, mask = create_mask_func(scale, rmask) 
+        print(mask.shape)# returned mask shape is 
         r_m = mask.shape[0] / 2
-        r_m1 = int(r_m + .5)
-        r_m2 = int(r_m - .5)
-        lattice_mask[x-r_m1:x+r_m2, y-r_m1:y+r_m2] = mask
+        xs = int(np.around(x-r_m))
+        ys = int(np.around(y-r_m))
+        d =  int(mask.shape[0])
+        lattice_mask[xs: xs+d, ys:ys+d] = mask
+        
     return lattice_mask
 
 
