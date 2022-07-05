@@ -122,7 +122,6 @@ def create_lattice_mask(lattice: np.ndarray, xy_atoms: np.ndarray,
     for xy in xy_atoms:
         x, y = xy
         _, mask = create_mask_func(scale, rmask) 
-        print(mask.shape)# returned mask shape is 
         r_m = mask.shape[0] / 2
         xs = int(np.around(x-r_m))
         ys = int(np.around(y-r_m))
