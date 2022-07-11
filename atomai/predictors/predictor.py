@@ -141,6 +141,12 @@ class SegPredictor(BasePredictor):
         **thresh (float):
             value between 0 and 1 for thresholding the NN output
             (Default: 0.5)
+        **filter_thresh (float):
+            value between 0 and 1 for thresholding the NN output for laplacian gaussian filter
+            (Default: 0.02)
+        **nnfilter (string):
+            name of filter to be applied on the NN output: binarize or gaussian_laplace. 
+            (Default: binarize)
         **d (int):
             half-side of a square around each atomic position used
             for refinement with 2d Gaussian peak fitting. Defaults to 1/4
@@ -166,7 +172,7 @@ class SegPredictor(BasePredictor):
                  resize: Union[Tuple, List] = None,
                  use_gpu: bool = False,
                  logits: bool = True,
-                 **kwargs: Union[int, float, bool]) -> None:
+                 **kwargs: Union[int, float, bool, str]) -> None:
         """
         Initializes predictive object
         """
@@ -184,6 +190,8 @@ class SegPredictor(BasePredictor):
         self.refine = refine
         self.d = kwargs.get("d", None)
         self.thresh = kwargs.get("thresh", .5)
+        self.filter_thresh = kwargs.get("filter_thresh", .02)
+        self.nnfilter = kwargs.get("nnfilter", 'binarize')
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
 
@@ -286,7 +294,7 @@ class SegPredictor(BasePredictor):
             return decoded_imgs
         images, decoded_imgs = self.predict(
             image_data, return_image=True, **kwargs)
-        loc = Locator(self.thresh, refine=self.refine, d=self.d)
+        loc = Locator(self.thresh, refine=self.refine, d=self.d, nnfilter = self.nnfilter, filter_thresh = self.filter_thresh)
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
