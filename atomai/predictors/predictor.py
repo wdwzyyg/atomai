@@ -475,12 +475,13 @@ class Locator:
             category = np.empty((0, 1))
             # we assume that class 'background' is always the last one
             for ch in range(decoded_img.shape[2]-1):
-                decoded_img_c = cv_thresh(
-                    decoded_img[:, :, ch], self.threshold)
                 
                 if self.nnfilter == 'binarize':
+                  decoded_img_c = cv_thresh(decoded_img[:, :, ch], self.threshold)
                   coord = find_com(decoded_img_c)
                 elif self.nnfilter == 'gaussian_laplace':
+                  decoded_img_c = decoded_img[:, :, ch]
+                  decoded_img_c[decoded_img_c < self.filter_thresh] = 0
                   sx = ndimage.sobel(decoded_img_c,axis=0,mode='constant')
                   sy = ndimage.sobel(decoded_img_c,axis=1,mode='constant')
                   lag = ndimage.gaussian_laplace(decoded_img_c, sigma=1)
