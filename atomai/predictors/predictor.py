@@ -12,6 +12,7 @@ import time
 from typing import Dict, List, Tuple, Type, Union
 
 import numpy as np
+from scipy import ndimage
 import torch
 import torch.nn.functional as F
 from atomai.utils import (cv_thresh, find_com, get_downsample_factor,
