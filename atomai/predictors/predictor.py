@@ -484,7 +484,7 @@ class Locator:
                   sy = ndimage.sobel(decoded_img_c,axis=1,mode='constant')
                   lag = ndimage.gaussian_laplace(decoded_img_c, sigma=1)
                   coord = find_com(lag<self.filter_thresh)
-                else 
+                else: 
                   raise AssertionError("Use nnfilter = binarize or gaussian_laplace")
                   
                 coord_ch = self.rem_edge_coord(coord, *nn_output.shape[1:3])
