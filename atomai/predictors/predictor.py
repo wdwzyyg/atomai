@@ -140,10 +140,10 @@ class SegPredictor(BasePredictor):
             (logits=True for AtomAI models)
         **thresh (float):
             value between 0 and 1 for thresholding the NN output
-            (Default: 0.5)
+            (Default: 0.2)
         **filter_thresh (float):
             value between 0 and 1 for thresholding the NN output for laplacian gaussian filter
-            (Default: 0.02)
+            (Default: -0.02)
         **nnfilter (string):
             name of filter to be applied on the NN output: binarize or gaussian_laplace. 
             (Default: binarize)
@@ -190,7 +190,7 @@ class SegPredictor(BasePredictor):
         self.refine = refine
         self.d = kwargs.get("d", None)
         self.thresh = kwargs.get("thresh", .5)
-        self.filter_thresh = kwargs.get("filter_thresh", .02)
+        self.filter_thresh = kwargs.get("filter_thresh", -0.02)
         self.nnfilter = kwargs.get("nnfilter", 'binarize')
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
@@ -422,10 +422,10 @@ class Locator:
         >>> coordinates = locator(dist_edge=10, refine=False).run(nn_output)
     """
     def __init__(self,
-                 threshold: float = 0.5,
+                 threshold: float = 0.2,
                  dist_edge: int = 5,
                  dim_order: str = 'channel_last',
-                 **kwargs: Union[bool, float]) -> None:
+                 **kwargs: Union[bool, float, str]) -> None:
         """
         Initialize locator parameters
         """
@@ -434,7 +434,9 @@ class Locator:
         self.dist_edge = dist_edge
         self.refine = kwargs.get("refine")
         self.d = kwargs.get("d")
-
+        self.filter_thresh = kwargs.get("filter_thresh", -0.02)
+        self.nnfilter = kwargs.get("nnfilter", 'binarize')
+        
     def preprocess(self, nn_output: np.ndarray) -> np.ndarray:
         """
         Prepares data for coordinates extraction
@@ -474,7 +476,17 @@ class Locator:
             for ch in range(decoded_img.shape[2]-1):
                 decoded_img_c = cv_thresh(
                     decoded_img[:, :, ch], self.threshold)
-                coord = find_com(decoded_img_c)
+                
+                if self.nnfilter == 'binarize':
+                  coord = find_com(decoded_img_c)
+                elif self.nnfilter == 'gaussian_laplace':
+                  sx = ndimage.sobel(decoded_img_c,axis=0,mode='constant')
+                  sy = ndimage.sobel(decoded_img_c,axis=1,mode='constant')
+                  lag = ndimage.gaussian_laplace(decoded_img_c, sigma=1)
+                  coord = find_com(lag<self.filter_thresh)
+                else 
+                  raise AssertionError("Use nnfilter = binarize or gaussian_laplace")
+                  
                 coord_ch = self.rem_edge_coord(coord, *nn_output.shape[1:3])
                 category_ch = np.zeros((coord_ch.shape[0], 1)) + ch
                 coordinates = np.append(coordinates, coord_ch, axis=0)
