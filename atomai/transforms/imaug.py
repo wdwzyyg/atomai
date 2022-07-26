@@ -370,6 +370,8 @@ class datatransform:
         if isinstance(self.resize, list) or isinstance(self.resize, tuple):
             if same_dim:
                 images, targets = self.apply_imresize(images, targets)
+        if isinstance(self.shift, list) or isinstance(self.gauss, tuple) or isinstance(self.flyback, list) or isinstance(self.flyback, tuple):
+            images, targets = self.apply_distortion(images, targets)
         if isinstance(self.gauss, list) or isinstance(self.gauss, tuple):
             images, targets = self.apply_gauss(images, targets)
         if isinstance(self.jitter, list) or isinstance(self.jitter, tuple):
@@ -448,7 +450,7 @@ def seg_augmentor(nb_classes: int,
                   **kwargs
                   ) -> Callable[[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
 
-    auglist = ["custom_transform", "zoom", "gauss_noise", "jitter",
+    auglist = ["custom_transform", "distortion", "zoom", "gauss_noise", "jitter",
                "poisson_noise", "contrast", "salt_and_pepper", "blur",
                "resize", "rotation", "background"]
     augdict = {k: kwargs[k] for k in auglist if k in kwargs.keys()}
