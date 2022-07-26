@@ -122,30 +122,30 @@ class datatransform:
     def apply_distortion(self,
                     X_batch: np.ndarray,
                     y_batch: np.ndarray) -> Tuple[np.ndarray]:
-    """
-    Randomly change random beam shift and flyback error of each training image on a stack
-    """
-    n, h, w = X_batch.shape[0:3]
+        """
+        Randomly change random beam shift and flyback error of each training image on a stack
+        """
+        n, h, w = X_batch.shape[0:3]
 
-    xshift = 1 # Final amount of displacement along x/y direction for each FRAME. xshift*numImages must be less than pad
-    yshift = 1
-    pad = np.absolute(max(xshift,yshift)) + 40; # give some extra space for sample drifting by using numImages+1
-    auxX,auxY = np.meshgrid(np.arange(-pad,h+pad),np.arange(-pad,w+pad))
-    X,Y = np.meshgrid(np.arange(h),np.arange(w)) # contains coordinates for grid and padded grid
+        xshift = 1 # Final amount of displacement along x/y direction for each FRAME. xshift*numImages must be less than pad
+        yshift = 1
+        pad = np.absolute(max(xshift,yshift)) + 40; # give some extra space for sample drifting by using numImages+1
+        auxX,auxY = np.meshgrid(np.arange(-pad,h+pad),np.arange(-pad,w+pad))
+        X,Y = np.meshgrid(np.arange(h),np.arange(w)) # contains coordinates for grid and padded grid
 
-    X_batch_noisy = np.zeros((n, h, w))
-    for i, img in enumerate(X_batch):
-      noiseLevelBrownian = np.random.randint(self.shift[0], self.shift[1])/100  # variance of random drift
-      noiseLevelFlybackError = np.random.randint(self.flyback[0], self.flyback[1])/10 # Flyback error level, default is 0.5        
-      temp = np.pad(img, ((pad,pad),(pad, pad)))
-      y1 = noiseLevelBrownian*np.cumsum(np.random.randn(h,w),axis=1) + noiseLevelFlybackError*np.random.randn(h,1)*np.ones((1,w)); 
-      y2 = noiseLevelBrownian*np.cumsum(np.random.randn(h,w),axis=1) + noiseLevelFlybackError*np.random.randn(h,1)*np.ones((1,w));
-      y1 = y1-y1.mean() # adjust mean value to be zero, consider adjust mean value to some other value for sample with drift direction
-      y2 = y2-y2.mean();
-      frame_distorted = interpolate.griddata((auxX.ravel(),auxY.ravel()),temp.ravel(),((X-y1).ravel(),(Y-y2).ravel())) # positive shift would shift to right side 
-      X_batch_noisy[i] = frame_distorted.reshape((h,w))
+        X_batch_noisy = np.zeros((n, h, w))
+        for i, img in enumerate(X_batch):
+          noiseLevelBrownian = np.random.randint(self.shift[0], self.shift[1])/100  # variance of random drift
+          noiseLevelFlybackError = np.random.randint(self.flyback[0], self.flyback[1])/10 # Flyback error level, default is 0.5        
+          temp = np.pad(img, ((pad,pad),(pad, pad)))
+          y1 = noiseLevelBrownian*np.cumsum(np.random.randn(h,w),axis=1) + noiseLevelFlybackError*np.random.randn(h,1)*np.ones((1,w)); 
+          y2 = noiseLevelBrownian*np.cumsum(np.random.randn(h,w),axis=1) + noiseLevelFlybackError*np.random.randn(h,1)*np.ones((1,w));
+          y1 = y1-y1.mean() # adjust mean value to be zero, consider adjust mean value to some other value for sample with drift direction
+          y2 = y2-y2.mean();
+          frame_distorted = interpolate.griddata((auxX.ravel(),auxY.ravel()),temp.ravel(),((X-y1).ravel(),(Y-y2).ravel())) # positive shift would shift to right side 
+          X_batch_noisy[i] = frame_distorted.reshape((h,w))
 
-    return X_batch_noisy, y_batch
+        return X_batch_noisy, y_batch
 
     def apply_gauss(self,
                     X_batch: np.ndarray,
