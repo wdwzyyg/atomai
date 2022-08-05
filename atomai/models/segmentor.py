@@ -175,8 +175,14 @@ class Segmentor(SegTrainer):
                 Computes centers of the mass of individual blobs
                 in the segmented images (Default: True)
             **thresh (float):
-                Value between 0 and 1 for thresholding the NN output
-                (Default: 0.5)
+                value between 0 and 1 for thresholding the NN output
+                (Default: 0.2)
+            **filter_thresh (float):
+                value between 0 and 1 for thresholding the NN output for laplacian gaussian filter
+                (Default: -0.02)
+            **nnfilter (string):
+                name of filter to be applied on the NN output: binarize or gaussian_laplace. 
+                (Default: binarize)
             **d (int):
                 half-side of a square around each atomic position used
                 for refinement with 2d Gaussian peak fitting. Defaults to 1/4
