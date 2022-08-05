@@ -485,7 +485,7 @@ class Locator:
                   sx = ndimage.sobel(decoded_img_c,axis=0,mode='constant')
                   sy = ndimage.sobel(decoded_img_c,axis=1,mode='constant')
                   lag = ndimage.gaussian_laplace(decoded_img_c, sigma=1)
-                  coord = find_com(lag<self.filter_thresh)
+                  coord = find_com(lag<-0.001)
                 else: 
                   raise AssertionError("Use nnfilter = binarize or gaussian_laplace")
                   
