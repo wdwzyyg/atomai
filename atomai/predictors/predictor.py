@@ -144,7 +144,7 @@ class SegPredictor(BasePredictor):
             (Default: 0.2)
         **filter_thresh (float):
             value between 0 and 1 for thresholding the NN output for laplacian gaussian filter
-            (Default: -0.02)
+            (Default: 0.02)
         **nnfilter (string):
             name of filter to be applied on the NN output: binarize or gaussian_laplace. 
             (Default: binarize)
@@ -191,7 +191,7 @@ class SegPredictor(BasePredictor):
         self.refine = refine
         self.d = kwargs.get("d", None)
         self.thresh = kwargs.get("thresh", .5)
-        self.filter_thresh = kwargs.get("filter_thresh", -0.02)
+        self.filter_thresh = kwargs.get("filter_thresh", 0.02)
         self.nnfilter = kwargs.get("nnfilter", 'binarize')
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
