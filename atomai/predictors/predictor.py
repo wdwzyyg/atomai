@@ -145,6 +145,9 @@ class SegPredictor(BasePredictor):
         **filter_thresh (float):
             value between 0 and 1 for thresholding the NN output for laplacian gaussian filter
             (Default: 0.02)
+        **glfilter_sigma (float):
+            value at least 1 for sigma of laplacian gaussian filter. Use larger value to reduce false positives. 
+            (Default: 1)
         **nnfilter (string):
             name of filter to be applied on the NN output: binarize or gaussian_laplace. 
             (Default: binarize)
@@ -193,6 +196,7 @@ class SegPredictor(BasePredictor):
         self.thresh = kwargs.get("thresh", .5)
         self.filter_thresh = kwargs.get("filter_thresh", 0.02)
         self.nnfilter = kwargs.get("nnfilter", 'binarize')
+        self.glfilter_sigma = kwargs.get("glfilter_sigma", '1')
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
 
@@ -295,7 +299,7 @@ class SegPredictor(BasePredictor):
             return decoded_imgs
         images, decoded_imgs = self.predict(
             image_data, return_image=True, **kwargs)
-        loc = Locator(self.thresh, refine=self.refine, d=self.d, nnfilter = self.nnfilter, filter_thresh = self.filter_thresh)
+        loc = Locator(self.thresh, refine=self.refine, d=self.d, nnfilter = self.nnfilter, filter_thresh = self.filter_thresh, glfilter_sigma = self.glfilter_sigma)
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
@@ -484,7 +488,7 @@ class Locator:
                   decoded_img_c[decoded_img_c < self.filter_thresh] = 0
                   sx = ndimage.sobel(decoded_img_c,axis=0,mode='constant')
                   sy = ndimage.sobel(decoded_img_c,axis=1,mode='constant')
-                  lag = ndimage.gaussian_laplace(decoded_img_c, sigma=1)
+                  lag = ndimage.gaussian_laplace(decoded_img_c, sigma=self.glfilter_sigma)
                   coord = find_com(lag<-0.001)
                 else: 
                   raise AssertionError("Use nnfilter = binarize or gaussian_laplace")
