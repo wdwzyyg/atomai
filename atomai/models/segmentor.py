@@ -179,7 +179,10 @@ class Segmentor(SegTrainer):
                 (Default: 0.2)
             **filter_thresh (float):
                 value between 0 and 1 for thresholding the NN output for laplacian gaussian filter
-                (Default: -0.02)
+                (Default: 0.02)
+            **glfilter_sigma (float):
+                value at least 1 for sigma of laplacian gaussian filter. Use larger value to reduce false positives. 
+                (Default: 1)
             **nnfilter (string):
                 name of filter to be applied on the NN output: binarize or gaussian_laplace. 
                 (Default: binarize)
