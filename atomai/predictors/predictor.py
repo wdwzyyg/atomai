@@ -435,7 +435,7 @@ class Locator:
         self.dist_edge = dist_edge
         self.refine = kwargs.get("refine")
         self.d = kwargs.get("d")
-        self.filter_thresh = kwargs.get("filter_thresh", -0.02)
+        self.filter_thresh = kwargs.get("filter_thresh", 0.02)
         self.nnfilter = kwargs.get("nnfilter", 'binarize')
         
     def preprocess(self, nn_output: np.ndarray) -> np.ndarray:
