@@ -10,9 +10,10 @@ Created by Maxim Ziatdinov (maxim.ziatdinov@ai4microscopy.com)
 
 import time
 from typing import Dict, List, Tuple, Type, Union
-
+from skimage.segmentation import watershed
 import numpy as np
 from scipy import ndimage
+from skimage.measure import regionprops
 import torch
 import torch.nn.functional as F
 from atomai.utils import (cv_thresh, find_com, get_downsample_factor,
@@ -25,6 +26,7 @@ class BasePredictor:
     """
     Base predictor class
     """
+
     def __init__(self,
                  model: Type[torch.nn.Module] = None,
                  use_gpu: bool = False,
@@ -94,16 +96,16 @@ class BasePredictor:
         prediction_all = torch.zeros(out_shape)
         for i in range(num_batches):
             if self.verbose:
-                print("\rBatch {}/{}".format(i+1, num_batches), end="")
-            data_i = data[i*batch_size:(i+1)*batch_size]
+                print("\rBatch {}/{}".format(i + 1, num_batches), end="")
+            data_i = data[i * batch_size:(i + 1) * batch_size]
             prediction_i = self.forward_(data_i)
             # We put predictions on cpu since the major point of batch-by-batch
             # prediction is to not run out of the GPU memory
-            prediction_all[i*batch_size:(i+1)*batch_size] = prediction_i.cpu()
-        data_i = data[(i+1)*batch_size:]
+            prediction_all[i * batch_size:(i + 1) * batch_size] = prediction_i.cpu()
+        data_i = data[(i + 1) * batch_size:]
         if len(data_i) > 0:
             prediction_i = self.forward_(data_i)
-            prediction_all[(i+1)*batch_size:] = prediction_i.cpu()
+            prediction_all[(i + 1) * batch_size:] = prediction_i.cpu()
         return prediction_all
 
     def predict(self,
@@ -170,6 +172,7 @@ class SegPredictor(BasePredictor):
         >>> nn_output, coords = pseg.run(expdata)
 
     """
+
     def __init__(self,
                  trained_model: Type[torch.nn.Module],
                  refine: bool = False,
@@ -299,7 +302,8 @@ class SegPredictor(BasePredictor):
             return decoded_imgs
         images, decoded_imgs = self.predict(
             image_data, return_image=True, **kwargs)
-        loc = Locator(self.thresh, refine=self.refine, d=self.d, nnfilter = self.nnfilter, filter_thresh = self.filter_thresh, glfilter_sigma = self.glfilter_sigma)
+        loc = Locator(self.thresh, refine=self.refine, d=self.d, nnfilter=self.nnfilter,
+                      filter_thresh=self.filter_thresh, glfilter_sigma=self.glfilter_sigma)
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
@@ -331,6 +335,7 @@ class ImSpecPredictor(BasePredictor):
         >>> out_dim = (16,)  # spectra length
         >>> prediction = ImSpecPredictor(trained_model, out_dim).run(data)
     """
+
     def __init__(self,
                  trained_model: Type[torch.nn.Module],
                  output_dim: Tuple[int],
@@ -426,6 +431,7 @@ class Locator:
         >>> # Transform output of atomnet.predictor to atomic classes and coordinates
         >>> coordinates = locator(dist_edge=10, refine=False).run(nn_output)
     """
+
     def __init__(self,
                  threshold: float = 0.2,
                  dist_edge: int = 5,
@@ -442,7 +448,7 @@ class Locator:
         self.filter_thresh = kwargs.get("filter_thresh", 0.02)
         self.glfilter_sigma = kwargs.get("glfilter_sigma", '1')
         self.nnfilter = kwargs.get("nnfilter", 'binarize')
-        
+
     def preprocess(self, nn_output: np.ndarray) -> np.ndarray:
         """
         Prepares data for coordinates extraction
@@ -479,21 +485,38 @@ class Locator:
             coordinates = np.empty((0, 2))
             category = np.empty((0, 1))
             # we assume that class 'background' is always the last one
-            for ch in range(decoded_img.shape[2]-1):
-                
+            for ch in range(decoded_img.shape[2] - 1):
+
                 if self.nnfilter == 'binarize':
-                  decoded_img_c = cv_thresh(decoded_img[:, :, ch], self.threshold)
-                  coord = find_com(decoded_img_c)
+                    decoded_img_c = cv_thresh(decoded_img[:, :, ch], self.threshold)
+                    coord = find_com(decoded_img_c)
                 elif self.nnfilter == 'gaussian_laplace':
-                  decoded_img_c = decoded_img[:, :, ch]
-                  decoded_img_c[decoded_img_c < self.filter_thresh] = 0
-                  sx = ndimage.sobel(decoded_img_c,axis=0,mode='constant')
-                  sy = ndimage.sobel(decoded_img_c,axis=1,mode='constant')
-                  lag = ndimage.gaussian_laplace(decoded_img_c, sigma=self.glfilter_sigma)
-                  coord = find_com(lag<-0.001)
-                else: 
-                  raise AssertionError("Use nnfilter = binarize or gaussian_laplace")
-                  
+                    decoded_img_c = decoded_img[:, :, ch]
+                    decoded_img_c[decoded_img_c < self.filter_thresh] = 0
+                    # sx = ndimage.sobel(decoded_img_c, axis=0, mode='constant')
+                    # sy = ndimage.sobel(decoded_img_c, axis=1, mode='constant')
+                    lag = ndimage.gaussian_laplace(decoded_img_c, sigma=self.glfilter_sigma)
+                    coord = find_com(lag < -0.001)
+                elif self.nnfilter == 'ostu':
+                    decoded_img_c = decoded_img[:, :, ch]
+
+                    elevation_map = ndimage.sobel(decoded_img_c)  # Sobel filter, a gradient filter for edge detection
+
+                    markers = np.zeros_like(decoded_img_c)
+
+                    max_thre = 100
+                    min_thre = 30
+                    markers[decoded_img_c < min_thre] = 1
+                    markers[decoded_img_c > max_thre] = 2
+                    seg_1 = watershed(elevation_map, markers)
+                    filled_regions = ndimage.binary_fill_holes(seg_1 - 1)
+                    coord = find_com(filled_regions)
+                    del elevation_map
+                    del markers, seg_1, filled_regions
+
+                else:
+                    raise AssertionError("Use nnfilter = binarize or gaussian_laplace or ostu")
+
                 coord_ch = self.rem_edge_coord(coord, *nn_output.shape[1:3])
                 category_ch = np.zeros((coord_ch.shape[0], 1)) + ch
                 coordinates = np.append(coordinates, coord_ch, axis=0)
@@ -524,9 +547,9 @@ class Locator:
                     coordinates[1] < self.dist_edge]
 
         coord_to_rem = [
-                        idx for idx, c in enumerate(coordinates)
-                        if any(coord_edges(c, h, w))
-                        ]
+            idx for idx, c in enumerate(coordinates)
+            if any(coord_edges(c, h, w))
+        ]
         coord_to_rem = np.array(coord_to_rem, dtype=int)
         coordinates = np.delete(coordinates, coord_to_rem, axis=0)
         return coordinates
