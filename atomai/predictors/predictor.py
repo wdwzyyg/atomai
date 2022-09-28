@@ -509,7 +509,7 @@ class Locator:
                 elif self.nnfilter == 'ostu':
                     decoded_img_c = decoded_img[:, :, ch]
 
-                    decoded_img_c[self.decoded_img_c < 0] = 0
+                    decoded_img_c[decoded_img_c < 0] = 0
                     decoded_img_c = mapint(decoded_img_c)
                     elevation_map = ndimage.sobel(decoded_img_c)  # Sobel filter, a gradient filter for edge detection
                     markers = np.zeros_like(decoded_img_c)
