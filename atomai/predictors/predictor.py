@@ -13,13 +13,17 @@ from typing import Dict, List, Tuple, Type, Union
 from skimage.segmentation import watershed
 import numpy as np
 from scipy import ndimage
-from skimage.measure import regionprops
 import torch
 import torch.nn.functional as F
 from atomai.utils import (cv_thresh, find_com, get_downsample_factor,
                           get_nb_classes, img_pad, img_resize, peak_refinement,
                           set_train_rng, torch_format_image,
                           torch_format_spectra)
+
+
+def mapint(mat):
+    data = (mat - mat.min()) / (mat.max() - mat.min())
+    return (data * 255).astype(np.uint8)
 
 
 class BasePredictor:
@@ -144,12 +148,14 @@ class SegPredictor(BasePredictor):
         **thresh (float):
             value between 0 and 1 for thresholding the NN output
             (Default: 0.2)
-        **filter_thresh (float):
+        **glfilter_thresh (float):
             value between 0 and 1 for thresholding the NN output for laplacian gaussian filter
             (Default: 0.02)
         **glfilter_sigma (float):
             value at least 1 for sigma of laplacian gaussian filter. Use larger value to reduce false positives. 
             (Default: 1)
+        **ostu_thresh ([min_int, max_int])
+            min and max value for the ostu filter within range 0-255
         **nnfilter (string):
             name of filter to be applied on the NN output: binarize or gaussian_laplace. 
             (Default: binarize)
@@ -197,9 +203,10 @@ class SegPredictor(BasePredictor):
         self.refine = refine
         self.d = kwargs.get("d", None)
         self.thresh = kwargs.get("thresh", .5)
-        self.filter_thresh = kwargs.get("filter_thresh", 0.02)
+        self.glfilter_thresh = kwargs.get("glfilter_thresh", 0.02)
         self.nnfilter = kwargs.get("nnfilter", 'binarize')
         self.glfilter_sigma = kwargs.get("glfilter_sigma", '1')
+        self.ostu_thresh = kwargs.get("ostu_thresh", [30, 100])
         self.use_gpu = use_gpu
         self.verbose = kwargs.get("verbose", True)
 
@@ -303,7 +310,8 @@ class SegPredictor(BasePredictor):
         images, decoded_imgs = self.predict(
             image_data, return_image=True, **kwargs)
         loc = Locator(self.thresh, refine=self.refine, d=self.d, nnfilter=self.nnfilter,
-                      filter_thresh=self.filter_thresh, glfilter_sigma=self.glfilter_sigma)
+                      glfilter_thresh=self.glfilter_thresh, glfilter_sigma=self.glfilter_sigma,
+                      ostu_thresh=self.ostu_thresh)
         coordinates = loc.run(decoded_imgs, images)
         if self.verbose:
             n_images_str = " image was " if decoded_imgs.shape[0] == 1 else " images were "
@@ -445,9 +453,10 @@ class Locator:
         self.dist_edge = dist_edge
         self.refine = kwargs.get("refine")
         self.d = kwargs.get("d")
-        self.filter_thresh = kwargs.get("filter_thresh", 0.02)
+        self.glfilter_thresh = kwargs.get("glfilter_thresh", 0.02)
         self.glfilter_sigma = kwargs.get("glfilter_sigma", '1')
         self.nnfilter = kwargs.get("nnfilter", 'binarize')
+        self.ostu_thresh = kwargs.get("ostu_thresh", [30, 100])
 
     def preprocess(self, nn_output: np.ndarray) -> np.ndarray:
         """
@@ -492,7 +501,7 @@ class Locator:
                     coord = find_com(decoded_img_c)
                 elif self.nnfilter == 'gaussian_laplace':
                     decoded_img_c = decoded_img[:, :, ch]
-                    decoded_img_c[decoded_img_c < self.filter_thresh] = 0
+                    decoded_img_c[decoded_img_c < self.glfilter_thresh] = 0
                     # sx = ndimage.sobel(decoded_img_c, axis=0, mode='constant')
                     # sy = ndimage.sobel(decoded_img_c, axis=1, mode='constant')
                     lag = ndimage.gaussian_laplace(decoded_img_c, sigma=self.glfilter_sigma)
@@ -500,12 +509,13 @@ class Locator:
                 elif self.nnfilter == 'ostu':
                     decoded_img_c = decoded_img[:, :, ch]
 
+                    decoded_img_c[self.decoded_img_c < 0] = 0
+                    decoded_img_c = mapint(decoded_img_c)
                     elevation_map = ndimage.sobel(decoded_img_c)  # Sobel filter, a gradient filter for edge detection
-
                     markers = np.zeros_like(decoded_img_c)
 
-                    max_thre = 100
-                    min_thre = 30
+                    min_thre = self.ostu_thresh[0]
+                    max_thre = self.ostu_thresh[1]
                     markers[decoded_img_c < min_thre] = 1
                     markers[decoded_img_c > max_thre] = 2
                     seg_1 = watershed(elevation_map, markers)
